@@ -12,6 +12,13 @@ kernel.service-code=KYC
 kernel.jwks-uri=${KERNEL_BASE_URL:http://localhost:8082}/.well-known/jwks.json
 kernel.jwt.rs256-enabled=${KERNEL_JWT_RS256_ENABLED:false}
 
+# KERNEL KAFKA (analyse asynchrone des documents KYC)
+# enabled=true → VerifID consomme FILE_ANALYSIS_REQUESTED et publie FILE_ANALYSIS_COMPLETED
+kernel.kafka.enabled=${KERNEL_KAFKA_ENABLED:false}
+kernel.kafka.bootstrap-servers=${KERNEL_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+kernel.kafka.topic=${KERNEL_KAFKA_TOPIC:iwm.events.business}
+kernel.kafka.group-id=${KERNEL_KAFKA_GROUP_ID:verifid-file-analysis}
+
 # PostgreSQL (R2DBC)
 spring.r2dbc.url=r2dbc:postgresql://HOST:5432/postgres?sslMode=require
 spring.r2dbc.username=your-db-username

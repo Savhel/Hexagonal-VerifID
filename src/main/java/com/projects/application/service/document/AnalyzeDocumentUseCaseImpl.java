@@ -51,21 +51,11 @@ public class AnalyzeDocumentUseCaseImpl implements AnalyzeDocumentUseCase {
                                                            String frontFilename, Long platformId) {
         boolean isPdf = frontFilename != null && frontFilename.toLowerCase().endsWith(".pdf");
 
-        Mono<String> frontOcr = ocrService.extractText(frontBytes, isPdf);
-        Mono<String> backOcr  = backBytes != null && backBytes.length > 0
-            ? ocrService.extractText(backBytes, isPdf)
-            : Mono.just("");
-
-        return Mono.zip(frontOcr, backOcr)
-            .flatMap(tuple -> {
-                String combined = tuple.getT1() + "\n" + tuple.getT2();
-                return aiService.extractDocumentData(combined)
-                    .map(geminiFields -> buildAnalysisResponse(tuple.getT1(), tuple.getT2(), geminiFields, combined));
-            })
+        return analyzeAndLog(frontBytes, backBytes, isPdf, platformId)
             .flatMap(response -> {
-                Mono<DocumentAnalysisResponse> resultMono = logVerification(response, platformId).thenReturn(response);
+                Mono<DocumentAnalysisResponse> resultMono = Mono.just(response);
                 if (Boolean.TRUE.equals(response.getIsValid())) {
-                    // Upload file to file_core if valid
+                    // Upload file to file_core if valid (chemin synchrone REST historique)
                     Flux<org.springframework.core.io.buffer.DataBuffer> contentFlux = Flux.just(new DefaultDataBufferFactory().wrap(frontBytes));
                     return fileStoragePort.storeFile(frontFilename, isPdf ? "application/pdf" : "image/jpeg", contentFlux, null, null, null)
                             .then(resultMono)
@@ -76,6 +66,31 @@ public class AnalyzeDocumentUseCaseImpl implements AnalyzeDocumentUseCase {
                 }
                 return resultMono;
             });
+    }
+
+    @Override
+    public Mono<DocumentAnalysisResponse> analyzeStoredDocument(byte[] frontBytes, String frontFilename,
+                                                                Long platformId) {
+        boolean isPdf = frontFilename != null && frontFilename.toLowerCase().endsWith(".pdf");
+        // Le fichier est déjà stocké dans le Kernel (mode asynchrone) → pas de ré-upload.
+        return analyzeAndLog(frontBytes, null, isPdf, platformId);
+    }
+
+    /** OCR → IA → validation → enregistrement du log. Commun aux modes synchrone et asynchrone. */
+    private Mono<DocumentAnalysisResponse> analyzeAndLog(byte[] frontBytes, byte[] backBytes, boolean isPdf,
+                                                         Long platformId) {
+        Mono<String> frontOcr = ocrService.extractText(frontBytes, isPdf);
+        Mono<String> backOcr = backBytes != null && backBytes.length > 0
+            ? ocrService.extractText(backBytes, isPdf)
+            : Mono.just("");
+
+        return Mono.zip(frontOcr, backOcr)
+            .flatMap(tuple -> {
+                String combined = tuple.getT1() + "\n" + tuple.getT2();
+                return aiService.extractDocumentData(combined)
+                    .map(geminiFields -> buildAnalysisResponse(tuple.getT1(), tuple.getT2(), geminiFields, combined));
+            })
+            .flatMap(response -> logVerification(response, platformId).thenReturn(response));
     }
 
     private DocumentAnalysisResponse buildAnalysisResponse(String front, String back,

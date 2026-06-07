@@ -80,6 +80,18 @@ public class KernelFileService implements FileStoragePort {
                 .doOnError(e -> log.error("[file-core] Erreur upload fichier : {}", e.getMessage()));
     }
 
+    @Override
+    public Mono<byte[]> downloadContent(UUID fileId, UUID tenantId, UUID orgId) {
+        return kernelWebClient.get()
+                .uri(FILES_ENDPOINT + "/" + fileId + "/content")
+                .headers(h -> applyKernelHeaders(h, tenantId, orgId, null))
+                .retrieve()
+                .bodyToMono(byte[].class)
+                .doOnSuccess(b -> log.info("[file-core] Contenu téléchargé — fileId={} taille={}o",
+                        fileId, b == null ? 0 : b.length))
+                .doOnError(e -> log.error("[file-core] Erreur download contenu {} : {}", fileId, e.getMessage()));
+    }
+
     /**
      * Récupère les métadonnées d'un fichier depuis le file-core.
      */

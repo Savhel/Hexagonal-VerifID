@@ -73,6 +73,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Kafka : intégration asynchrone avec le file-core du Kernel iwm
+             (consomme FILE_ANALYSIS_REQUESTED, publie FILE_ANALYSIS_COMPLETED) -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Spring Security:
              Authentication & authorization -->
         <dependency>
