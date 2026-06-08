@@ -34,8 +34,13 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       JWT_SECRET: ${JWT_SECRET:?Definir JWT_SECRET}
       ENCRYPTION_SECRET_KEY: ${ENCRYPTION_SECRET_KEY:?Definir ENCRYPTION_SECRET_KEY (AES-256)}
-    ports:
-      - "${VERIFID_PUBLIC_PORT:-8083}:8080"
+    # Routé par Traefik (verifid.<IP>.nip.io) → plus de port hôte.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.verifid.rule=Host(`verifid.${PUBLIC_HOST:-localhost}`)"
+      - "traefik.http.routers.verifid.entrypoints=web"
+      - "traefik.http.services.verifid.loadbalancer.server.port=8080"
+      - "traefik.docker.network=iwm-vm-network"
     networks:
       - iwm
 
