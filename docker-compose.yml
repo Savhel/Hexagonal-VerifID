@@ -1,0 +1,45 @@
+# Déploiement INDÉPENDANT de VerifID, branché sur l'infra partagée iwm (réseau iwm-vm-network).
+# Prérequis : la stack iwm (docker-compose.vm.yml) tourne déjà, et la base "verifid" existe :
+#   docker exec -it iwm-postgres psql -U iwm -c "CREATE DATABASE verifid;"
+#
+#   cp .env.example .env   # renseigner les secrets (DB, Gemini, Brevo, clé KYC iwm)
+#   docker compose up -d --build
+
+services:
+  verifid:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: verifid-backend:local
+    container_name: verifid-backend
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: "8080"
+      # --- Base partagée (DB dédiée "verifid") ---
+      SPRING_R2DBC_URL: r2dbc:postgresql://iwm-postgres:5432/${VERIFID_DB_NAME:-verifid}
+      SPRING_R2DBC_USERNAME: ${IWM_DB_USER:-iwm}
+      SPRING_R2DBC_PASSWORD: ${IWM_DB_PASSWORD:?Definir IWM_DB_PASSWORD}
+      # --- Connexion au Kernel iwm ---
+      KERNEL_BASE_URL: http://iwm-app:8080
+      KERNEL_CLIENT_ID: ${KERNEL_CLIENT_ID:-verifid-backend}
+      KERNEL_API_KEY: ${KERNEL_API_KEY:?Definir KERNEL_API_KEY (secret ClientApplication KYC)}
+      KERNEL_JWT_RS256_ENABLED: "true"
+      # --- Kafka partagé (analyse asynchrone KYC) ---
+      KERNEL_KAFKA_ENABLED: "true"
+      KERNEL_KAFKA_BOOTSTRAP_SERVERS: iwm-kafka:29092
+      KERNEL_KAFKA_TOPIC: iwm.events.business
+      KERNEL_KAFKA_GROUP_ID: verifid-file-analysis
+      # --- Intégrations externes (vides = à compléter plus tard) ---
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:?Definir JWT_SECRET}
+      ENCRYPTION_SECRET_KEY: ${ENCRYPTION_SECRET_KEY:?Definir ENCRYPTION_SECRET_KEY (AES-256)}
+    ports:
+      - "${VERIFID_PUBLIC_PORT:-8083}:8080"
+    networks:
+      - iwm
+
+networks:
+  iwm:
+    external: true
+    name: iwm-vm-network
