@@ -21,10 +21,10 @@ public class OcrAdapter implements OcrServicePort {
 
     private final WebClient webClient;
 
-    @Value("${parsing.api.url}")
+    @Value("${parsing.api.url:https://parsing.invalid/api}")
     private String parsingApiUrl;
 
-    @Value("${parsing.api.token}")
+    @Value("${parsing.api.token:}")
     private String parsingApiToken;
 
     public OcrAdapter(WebClient.Builder webClientBuilder) {
